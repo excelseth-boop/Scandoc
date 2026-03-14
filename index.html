@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DocScan</title>
+<style>
+  :root {
+    --bg:#0d0d14;--surface:#16161f;--surface2:#1e1e2a;--border:#2c2c3e;
+    --accent:#7c6af7;--accent2:#f76c6a;--accent3:#5ef0b8;
+    --text:#eeeef5;--muted:#6060a0;--success:#4ade80;--warn:#fbbf24;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;min-height:100vh;padding-bottom:calc(env(safe-area-inset-bottom,0px)+40px);}
+  .header{padding:calc(env(safe-area-inset-top,0px)+14px) 20px 14px;display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .logo-text{font-size:20px;font-weight:700;}
+  .logo-text span{color:var(--accent);}
+  .model-tag{font-size:10px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:4px 10px;border-radius:20px;}
+  .scroll-body{padding:18px;display:flex;flex-direction:column;gap:14px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;}
+  .card-label{font-size:10px;color:var(--accent3);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:12px;font-weight:600;}
+  .api-row{display:flex;align-items:center;gap:10px;}
+  .api-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'SF Mono','Menlo',monospace;font-size:13px;outline:none;-webkit-appearance:none;transition:border-color 0.2s;}
+  .api-input:focus{border-color:var(--accent);}
+  .eye-btn{width:42px;height:42px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .api-status{margin-top:10px;padding:9px 13px;border-radius:9px;font-size:12px;font-family:'SF Mono',monospace;}
+  .api-status.ok{background:rgba(74,222,128,0.12);color:var(--success);border:1px solid rgba(74,222,128,0.25);}
+  .api-status.bad{background:rgba(251,191,36,0.1);color:var(--warn);border:1px solid rgba(251,191,36,0.2);}
+  .type-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .type-btn{background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;padding:13px 8px;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;-webkit-appearance:none;}
+  .type-btn .te{font-size:16px;}
+  .type-btn.active{background:rgba(124,106,247,0.15);border-color:var(--accent);color:var(--text);}
+  .upload-zone{background:var(--surface2);border:2px dashed var(--border);border-radius:14px;padding:36px 20px;text-align:center;cursor:pointer;}
+  .upload-zone.has-file{border-style:solid;border-color:var(--accent);padding:16px;text-align:left;}
+  .ui-big{font-size:40px;margin-bottom:12px;display:block;}
+  .ut{font-size:16px;font-weight:600;margin-bottom:6px;}
+  .us{font-size:13px;color:var(--muted);}
+  input[type=file]{display:none;}
+  .file-row{display:flex;align-items:center;gap:12px;}
+  .file-thumb{width:56px;height:56px;border-radius:8px;background:var(--surface);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden;}
+  .file-thumb img{width:100%;height:100%;object-fit:cover;}
+  .file-info{flex:1;min-width:0;}
+  .file-name{font-size:13px;font-weight:600;color:var(--accent3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}
+  .file-meta{font-size:11px;color:var(--muted);font-family:'SF Mono',monospace;}
+  .remove-btn{background:rgba(247,108,106,0.12);border:1px solid rgba(247,108,106,0.3);color:var(--accent2);border-radius:8px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;}
+  .status-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:none;}
+  .status-card.show{display:block;}
+  .status-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1s ease infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+  .status-text{font-size:13px;color:var(--muted);font-family:'SF Mono',monospace;}
+  .prog-bg{background:var(--surface2);border-radius:20px;height:5px;overflow:hidden;}
+  .prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:20px;width:0%;transition:width 0.5s ease;}
+  .scan-btn{width:100%;padding:17px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),#9b8df7);color:white;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:10px;-webkit-appearance:none;}
+  .scan-btn:disabled{background:var(--surface2);color:var(--muted);cursor:not-allowed;}
+  .scan-btn:not(:disabled):active{transform:scale(0.97);}
+  .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .error-box{display:none;background:rgba(247,108,106,0.1);border:1px solid rgba(247,108,106,0.35);border-radius:12px;padding:14px 16px;font-size:13px;color:var(--accent2);line-height:1.6;word-break:break-word;}
+  .error-box.show{display:block;}
+  .results{display:none;}
+  .results.show{display:block;}
+  .results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .results-label{font-size:10px;color:var(--accent3);letter-spacing:1.2px;text-transform:uppercase;font-weight:600;}
+  .copy-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px 13px;font-size:12px;cursor:pointer;font-weight:600;}
+  .fields-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+  .field-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;animation:fadeUp 0.35s ease forwards;opacity:0;}
+  .field-card.wide{grid-column:1/-1;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .field-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;}
+  .field-val{font-size:14px;font-weight:600;color:var(--text);word-break:break-word;line-height:1.3;}
+  .field-val.big{font-size:20px;color:var(--accent3);}
+  .line-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;}
+  .line-table th{text-align:left;padding:6px 4px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;}
+  .line-table th:last-child,.line-table td:last-child{text-align:right;}
+  .line-table td{padding:8px 4px;border-bottom:1px solid rgba(44,44,62,0.5);color:var(--text);font-family:'SF Mono',monospace;}
+  .raw-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;cursor:pointer;margin-bottom:10px;}
+  .raw-toggle span{font-size:12px;color:var(--muted);font-family:'SF Mono',monospace;}
+  .raw-toggle .arr{color:var(--accent);font-size:14px;transition:transform 0.2s;}
+  .raw-toggle.open .arr{transform:rotate(90deg);}
+  .raw-code{display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;font-family:'SF Mono',monospace;font-size:11px;color:var(--accent3);line-height:1.6;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;margin-bottom:16px;}
+  .raw-code.show{display:block;}
+  .hist-section{display:none;}
+  .hist-section.show{display:block;}
+  .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .sec-title{font-size:10px;color:var(--accent3);letter-spacing:1.2px;text-transform:uppercase;font-weight:600;}
+  .sec-act{font-size:12px;color:var(--accent2);cursor:pointer;font-weight:600;}
+  .hist-item{display:flex;align-items:center;gap:12px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;cursor:pointer;}
+  .hist-item:active{border-color:var(--accent);}
+  .hist-emoji{font-size:22px;flex-shrink:0;}
+  .hist-info{flex:1;min-width:0;}
+  .hist-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}
+  .hist-meta{font-size:11px;color:var(--muted);font-family:'SF Mono',monospace;}
+  .hist-type{font-size:11px;padding:3px 10px;border-radius:20px;background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.25);white-space:nowrap;flex-shrink:0;}
+  footer{text-align:center;padding:20px 20px 10px;font-size:11px;color:var(--muted);font-family:'SF Mono',monospace;line-height:1.6;}
+  footer span{color:var(--accent);}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">🔍</div>
+    <div class="logo-text">Doc<span>Scan</span></div>
+  </div>
+  <div class="model-tag">Claude AI</div>
+</div>
+
+<div class="scroll-body">
+
+  <div class="card">
+    <div class="card-label">Anthropic API Key</div>
+    <div class="api-row">
+      <input class="api-input" id="apiKey" type="password" placeholder="sk-ant-api03-…"
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="onApiChange()">
+      <button class="eye-btn" onclick="toggleEye()">👁</button>
+    </div>
+    <div class="api-status bad" id="apiStatus">⚠ Enter your API key to enable scanning</div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Document Type</div>
+    <div class="type-grid">
+      <button class="type-btn active" data-type="invoice" onclick="selectType(this)"><span class="te">🧾</span> Invoice/Bill</button>
+      <button class="type-btn" data-type="license" onclick="selectType(this)"><span class="te">🪪</span> Driver's Licence</button>
+      <button class="type-btn" data-type="passport" onclick="selectType(this)"><span class="te">📘</span> Passport</button>
+      <button class="type-btn" data-type="medical" onclick="selectType(this)"><span class="te">🩺</span> Medical Report</button>
+      <button class="type-btn" data-type="generic" onclick="selectType(this)" style="grid-column:1/-1"><span class="te">📄</span> Any Document (Auto-detect)</button>
+    </div>
+  </div>
+
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+    <span class="ui-big">📁</span>
+    <div class="ut">Tap to upload document</div>
+    <div class="us">JPG · PNG · PDF · WEBP</div>
+  </div>
+  <input type="file" id="fileInput" accept="image/*,.pdf" onchange="handleFile(this.files[0])">
+
+  <div class="status-card" id="statusCard">
+    <div class="status-row">
+      <div class="status-dot"></div>
+      <div class="status-text" id="statusText">Working…</div>
+    </div>
+    <div class="prog-bg"><div class="prog-fill" id="progFill"></div></div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <button class="scan-btn" id="scanBtn" disabled onclick="scanDocument()">
+    <span id="scanBtnContent">🔍 Scan Document</span>
+  </button>
+
+  <div class="results" id="results">
+    <div class="results-header">
+      <div class="results-label">✅ Extracted Data</div>
+      <button class="copy-btn" onclick="copyAll()">📋 Copy JSON</button>
+    </div>
+    <div class="fields-grid" id="fieldsGrid"></div>
+    <div class="raw-toggle" id="rawToggle" onclick="toggleRaw()">
+      <span>View raw API response</span>
+      <span class="arr">▶</span>
+    </div>
+    <div class="raw-code" id="rawCode"></div>
+  </div>
+
+  <div class="hist-section" id="histSection">
+    <div class="sec-hdr">
+      <div class="sec-title">Scan History</div>
+      <div class="sec-act" onclick="clearHistory()">Clear all</div>
+    </div>
+    <div id="histList"></div>
+  </div>
+
+</div>
+
+<footer>DocScan · powered by <span>Claude AI</span><br>API calls via secure server proxy · never stored</footer>
+
+<script>
+'use strict';
+
+// ── Auto-detect proxy URL (same origin on Vercel) ─────────────────────────
+var PROXY_URL = '/api/scan';
+
+var currentFile = null;
+var currentType = 'invoice';
+var lastResult = null;
+var scanHistory = [];
+try { scanHistory = JSON.parse(localStorage.getItem('docscan_hist') || '[]'); } catch(e) {}
+
+var PROMPTS = {
+  invoice:  'Extract all data from this invoice or bill image. Output ONLY a JSON object, nothing else. No markdown. No explanation. No code blocks. Start your response with { and end with }.\nStructure: {"document_type":"Invoice","vendor_name":"","vendor_address":"","invoice_number":"","invoice_date":"","due_date":"","line_items":[{"description":"","qty":"","unit_price":"","amount":""}],"subtotal":"","tax":"","discount":"","total_amount":"","currency":"","payment_method":"","notes":""}',
+  license:  'Extract all data from this driving licence or ID card image. Output ONLY a JSON object, nothing else. No markdown. No explanation. No code blocks. Start your response with { and end with }.\nStructure: {"document_type":"Driver Licence","full_name":"","licence_number":"","date_of_birth":"","address":"","issue_date":"","expiry_date":"","licence_class":"","state_country":"","sex":"","restrictions":""}',
+  passport: 'Extract all data from this passport image. Output ONLY a JSON object, nothing else. No markdown. No explanation. No code blocks. Start your response with { and end with }.\nStructure: {"document_type":"Passport","full_name":"","passport_number":"","nationality":"","date_of_birth":"","sex":"","place_of_birth":"","issue_date":"","expiry_date":"","issuing_country":"","mrz_line1":"","mrz_line2":""}',
+  medical:  'Extract all data from this medical or lab report image. Output ONLY a JSON object, nothing else. No markdown. No explanation. No code blocks. Start your response with { and end with }.\nStructure: {"document_type":"Medical Report","patient_name":"","patient_id":"","age":"","sex":"","date_collected":"","date_reported":"","lab_name":"","doctor_name":"","tests":[{"test_name":"","result":"","unit":"","reference_range":"","status":""}],"summary":"","notes":""}',
+  generic:  'Extract every piece of visible information from this document image. Output ONLY a JSON object, nothing else. No markdown. No explanation. No code blocks. Start your response with { and end with }.\nStructure: {"document_type":"","title":"","date":"","reference_number":"","issuer":"","recipient":"","fields":{},"notes":""}'
+};
+
+// Init
+(function() {
+  try {
+    var k = localStorage.getItem('docscan_apikey');
+    if (k) { document.getElementById('apiKey').value = k; onApiChange(); }
+  } catch(e) {}
+  renderHistory();
+})();
+
+function onApiChange() {
+  var val = document.getElementById('apiKey').value.trim();
+  var st = document.getElementById('apiStatus');
+  if (val.startsWith('sk-ant-') && val.length > 25) {
+    st.textContent = '✓ API key saved & ready';
+    st.className = 'api-status ok';
+    try { localStorage.setItem('docscan_apikey', val); } catch(e) {}
+  } else if (val.length > 0) {
+    st.textContent = '⚠ Key should start with sk-ant-api03-…';
+    st.className = 'api-status bad';
+  } else {
+    st.textContent = '⚠ Enter your API key to enable scanning';
+    st.className = 'api-status bad';
+  }
+  updateBtn();
+}
+
+function toggleEye() {
+  var i = document.getElementById('apiKey');
+  i.type = (i.type === 'password') ? 'text' : 'password';
+}
+
+function selectType(el) {
+  document.querySelectorAll('.type-btn').forEach(function(b) { b.classList.remove('active'); });
+  el.classList.add('active');
+  currentType = el.dataset.type;
+}
+
+function handleFile(file) {
+  if (!file) return;
+  currentFile = file;
+  var zone = document.getElementById('uploadZone');
+  zone.classList.add('has-file');
+  var isPdf = (file.type === 'application/pdf');
+  try {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var src = e.target.result;
+      zone.innerHTML = '<div class="file-row">' +
+        '<div class="file-thumb">' + (isPdf ? '📄' : '<img src="' + src + '" alt="">') + '</div>' +
+        '<div class="file-info">' +
+        '<div class="file-name">' + escHtml(file.name) + '</div>' +
+        '<div class="file-meta">' + (file.size/1024).toFixed(1) + ' KB · ' + (file.type||'file') + '</div>' +
+        '</div>' +
+        '<button class="remove-btn" onclick="clearFile(event)">✕ Remove</button>' +
+        '</div>';
+    };
+    reader.readAsDataURL(file);
+  } catch(e) {}
+  hideError(); hideResults(); updateBtn();
+}
+
+function clearFile(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  currentFile = null;
+  try { document.getElementById('fileInput').value = ''; } catch(e) {}
+  var zone = document.getElementById('uploadZone');
+  zone.classList.remove('has-file');
+  zone.innerHTML = '<span class="ui-big">📁</span><div class="ut">Tap to upload document</div><div class="us">JPG · PNG · PDF · WEBP</div>';
+  hideResults(); updateBtn();
+}
+
+function updateBtn() {
+  var key = document.getElementById('apiKey').value.trim();
+  document.getElementById('scanBtn').disabled = !(currentFile && key.length > 10);
+}
+
+function hideError() { var e = document.getElementById('errorBox'); e.className = 'error-box'; e.textContent = ''; }
+function showError(msg) { var e = document.getElementById('errorBox'); e.textContent = '⚠ ' + String(msg); e.className = 'error-box show'; }
+function hideResults() { document.getElementById('results').classList.remove('show'); lastResult = null; }
+function setStatus(pct, text) {
+  document.getElementById('statusCard').classList.add('show');
+  document.getElementById('statusText').textContent = text;
+  document.getElementById('progFill').style.width = pct + '%';
+}
+function hideStatus() { document.getElementById('statusCard').classList.remove('show'); document.getElementById('progFill').style.width = '0%'; }
+
+// Read file as base64 data URL
+function readFileAsDataUrl(file) {
+  return new Promise(function(resolve, reject) {
+    var r = new FileReader();
+    r.onload = function(e) { resolve(e.target.result); };
+    r.onerror = function() { reject(new Error('Could not read file')); };
+    r.readAsDataURL(file);
+  });
+}
+
+// Compress image via canvas
+function compressImage(dataUrl, maxPx, quality) {
+  return new Promise(function(resolve, reject) {
+    var img = new Image();
+    img.onload = function() {
+      try {
+        var w = img.width, h = img.height;
+        if (w > maxPx || h > maxPx) {
+          if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+          else { w = Math.round(w * maxPx / h); h = maxPx; }
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
+      } catch(err) { reject(err); }
+    };
+    img.onerror = function() { reject(new Error('Image decode failed')); };
+    img.src = dataUrl;
+  });
+}
+
+async function scanDocument() {
+  var apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey || !currentFile) return;
+
+  var btn = document.getElementById('scanBtn');
+  btn.disabled = true;
+  document.getElementById('scanBtnContent').innerHTML = '<div class="spinner"></div> Analysing…';
+  hideError(); hideResults();
+
+  try {
+    var isPdf = (currentFile.type === 'application/pdf');
+    var base64, mediaType;
+
+    if (isPdf) {
+      setStatus(20, 'Reading PDF…');
+      var pdfUrl = await readFileAsDataUrl(currentFile);
+      base64 = pdfUrl.split(',')[1];
+      mediaType = 'application/pdf';
+    } else {
+      setStatus(15, 'Reading image…');
+      var imgUrl = await readFileAsDataUrl(currentFile);
+      setStatus(35, 'Compressing…');
+      base64 = await compressImage(imgUrl, 1400, 0.82);
+      mediaType = 'image/jpeg';
+    }
+
+    setStatus(55, 'Sending to AI…');
+
+    var content = isPdf
+      ? [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+         { type: 'text', text: PROMPTS[currentType] }]
+      : [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
+         { type: 'text', text: PROMPTS[currentType] }];
+
+    // Call via server proxy (avoids CORS/header issues on iPhone)
+    var resp = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: apiKey, content: content })
+    });
+
+    setStatus(80, 'Parsing response…');
+
+    var respData = await resp.json();
+
+    if (!resp.ok) {
+      throw new Error(respData.error || 'Server error ' + resp.status);
+    }
+
+    var rawText = (respData.content || []).map(function(c) { return c.text || ''; }).join('').trim();
+    document.getElementById('rawCode').textContent = rawText || '(empty)';
+
+    if (!rawText) throw new Error('Empty response from API. Please try again.');
+
+    var extracted = extractJSON(rawText);
+    if (!extracted) {
+      document.getElementById('results').classList.add('show');
+      document.getElementById('fieldsGrid').innerHTML = '';
+      throw new Error('Could not parse JSON. Tap "View raw API response" to see what was returned.');
+    }
+
+    setStatus(100, 'Done!');
+    lastResult = extracted;
+    renderResults(extracted);
+    saveHistory(extracted);
+
+  } catch(err) {
+    showError(err && err.message ? err.message : String(err));
+    document.getElementById('results').classList.add('show');
+  } finally {
+    setTimeout(hideStatus, 800);
+    btn.disabled = false;
+    document.getElementById('scanBtnContent').innerHTML = '🔍 Scan Document';
+    updateBtn();
+  }
+}
+
+function extractJSON(text) {
+  if (!text) return null;
+  try { return JSON.parse(text); } catch(e) {}
+  var s = text.replace(/```(?:json)?/gi,'').replace(/```/g,'').trim();
+  try { return JSON.parse(s); } catch(e) {}
+  var f = text.indexOf('{'), l = text.lastIndexOf('}');
+  if (f !== -1 && l > f) { try { return JSON.parse(text.slice(f, l+1)); } catch(e) {} }
+  f = s.indexOf('{'); l = s.lastIndexOf('}');
+  if (f !== -1 && l > f) { try { return JSON.parse(s.slice(f, l+1)); } catch(e) {} }
+  var m = text.match(/\{[\s\S]*\}/);
+  if (m) { try { return JSON.parse(m[0]); } catch(e) {} }
+  return null;
+}
+
+var HL_KEYS = {total_amount:1,licence_number:1,passport_number:1,full_name:1,patient_name:1};
+var SKIP_KEYS = {line_items:1,tests:1,fields:1,document_type:1};
+
+function renderResults(data) {
+  var grid = document.getElementById('fieldsGrid');
+  grid.innerHTML = '';
+  var d = 0;
+  if (data.document_type) addCard(grid,'Document Type',data.document_type,false,d++,true);
+  for (var k in data) {
+    if (!data.hasOwnProperty(k)) continue;
+    var v = data[k];
+    if (!v || SKIP_KEYS[k] || typeof v === 'object') continue;
+    addCard(grid, k.replace(/_/g,' '), String(v), !!HL_KEYS[k], d++, false);
+  }
+  if (Array.isArray(data.line_items) && data.line_items.length) {
+    var c = makeCard(d++, true);
+    c.innerHTML = '<div class="field-lbl">Line Items</div>' +
+      '<table class="line-table"><thead><tr>' +
+      '<th style="width:42%">Description</th><th>Qty</th><th>Unit</th><th>Amount</th>' +
+      '</tr></thead><tbody>' +
+      data.line_items.map(function(i){
+        return '<tr><td>'+escHtml(i.description||'')+'</td><td style="text-align:right">'+escHtml(i.qty||'')+'</td><td style="text-align:right">'+escHtml(i.unit_price||'')+'</td><td style="text-align:right;color:var(--accent3)">'+escHtml(i.amount||'')+'</td></tr>';
+      }).join('') + '</tbody></table>';
+    grid.appendChild(c);
+  }
+  if (Array.isArray(data.tests) && data.tests.length) {
+    var c2 = makeCard(d++, true);
+    c2.innerHTML = '<div class="field-lbl">Test Results</div>' +
+      '<table class="line-table"><thead><tr>' +
+      '<th style="width:36%">Test</th><th>Result</th><th>Range</th><th>Status</th>' +
+      '</tr></thead><tbody>' +
+      data.tests.map(function(t){
+        var ab = /abnormal|critical|high|low/i.test(t.status||'');
+        return '<tr><td>'+escHtml(t.test_name||'')+'</td><td style="text-align:right;font-weight:600">'+escHtml(t.result||'')+' '+escHtml(t.unit||'')+'</td><td style="text-align:right;color:var(--muted)">'+escHtml(t.reference_range||'')+'</td><td style="text-align:right;color:'+(ab?'var(--accent2)':'var(--success)')+';font-weight:600">'+escHtml(t.status||'')+'</td></tr>';
+      }).join('') + '</tbody></table>';
+    grid.appendChild(c2);
+  }
+  if (data.fields && typeof data.fields === 'object') {
+    for (var fk in data.fields) {
+      if (data.fields.hasOwnProperty(fk) && data.fields[fk])
+        addCard(grid, fk.replace(/_/g,' '), String(data.fields[fk]), false, d++, false);
+    }
+  }
+  document.getElementById('results').classList.add('show');
+  setTimeout(function(){ document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'}); }, 100);
+}
+
+function makeCard(delay, wide) {
+  var c = document.createElement('div');
+  c.className = 'field-card' + (wide?' wide':'');
+  c.style.animationDelay = (delay*50)+'ms';
+  return c;
+}
+function addCard(grid, label, value, highlight, delay, wide) {
+  var c = makeCard(delay, wide);
+  c.innerHTML = '<div class="field-lbl">'+escHtml(label)+'</div><div class="field-val '+(highlight?'big':'')+'">'+escHtml(value)+'</div>';
+  grid.appendChild(c);
+}
+function toggleRaw() {
+  var code = document.getElementById('rawCode'), tog = document.getElementById('rawToggle');
+  tog.classList.toggle('open', code.classList.toggle('show'));
+}
+function copyAll() {
+  if (!lastResult) return;
+  try {
+    navigator.clipboard.writeText(JSON.stringify(lastResult,null,2)).then(function(){
+      var b = document.querySelector('.copy-btn'); b.textContent='✓ Copied!';
+      setTimeout(function(){ b.textContent='📋 Copy JSON'; }, 2000);
+    });
+  } catch(e) {}
+}
+var TYPE_EMOJI = {invoice:'🧾',license:'🪪',passport:'📘',medical:'🩺',generic:'📄'};
+function saveHistory(data) {
+  scanHistory.unshift({id:Date.now(),type:currentType,fileName:currentFile?currentFile.name:'document',time:new Date().toLocaleString(),data:data});
+  if (scanHistory.length>20) scanHistory.pop();
+  try { localStorage.setItem('docscan_hist', JSON.stringify(scanHistory)); } catch(e) {}
+  renderHistory();
+}
+function renderHistory() {
+  if (!scanHistory.length) { document.getElementById('histSection').classList.remove('show'); return; }
+  document.getElementById('histSection').classList.add('show');
+  document.getElementById('histList').innerHTML = scanHistory.map(function(h){
+    return '<div class="hist-item" onclick="loadHistory('+h.id+')">' +
+      '<span class="hist-emoji">'+(TYPE_EMOJI[h.type]||'📄')+'</span>' +
+      '<div class="hist-info"><div class="hist-name">'+escHtml(h.fileName)+'</div><div class="hist-meta">'+escHtml(h.time)+'</div></div>' +
+      '<div class="hist-type">'+escHtml(h.type)+'</div></div>';
+  }).join('');
+}
+function loadHistory(id) {
+  for (var i=0;i<scanHistory.length;i++) { if(scanHistory[i].id===id){lastResult=scanHistory[i].data;renderResults(scanHistory[i].data);return;} }
+}
+function clearHistory() {
+  scanHistory=[]; try{localStorage.removeItem('docscan_hist');}catch(e){} renderHistory();
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
